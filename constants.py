@@ -1,0 +1,18 @@
+SCREEN_SIZE = (640, 640)
+
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+YELLOW = (252, 209, 128)
+GREEN = (28, 255, 49, 255)
+
+ml = 25
+mt = 25
+
+# 棋盘大小和棋子大小
+BOARD_SIZE = 19
+CELL_SIZE = (SCREEN_SIZE[0] - 40) // (BOARD_SIZE - 1)
+
+# 定义棋子类型
+FREE_POS = 0
+BLACK_STONE = 1
+WHITE_STONE = -1
