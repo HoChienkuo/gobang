@@ -1,8 +1,9 @@
 from constants import BOARD_SIZE
 
 import numpy as np
+from collections import defaultdict
 
-MAX_DEPTH = 3  # 搜索深度
+MAX_DEPTH = 2  # 搜索深度
 
 # 评估函数权重
 SCORES = {
@@ -35,30 +36,92 @@ class AI:
 
     def move(self, row, col):
         self.board[row][col] = 1
-        _, move = self.minimax(MAX_DEPTH, -float('inf'), float('inf'), True)
+        kill_moves = self.detect_kill_moves()
+        if kill_moves:
+            (x, y) = kill_moves
+            self.board[x][y] = -1
+            return x, y
+        _, move = self.minimax(MAX_DEPTH, -float('inf'), float('inf'), False)
         (x, y) = move
         self.board[x][y] = -1
         return x, y
 
+    def get_line(self, x, y, dx, dy):
+        line = ''
+        for i in range(-4, 5):
+            nx, ny = x + i * dx, y + i * dy
+            if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
+                cell = self.board[nx][ny]
+                if cell == -1:
+                    line += '1'  # AI
+                elif cell == 1:
+                    line += '2'  # 玩家
+                else:
+                    line += '0'
+            else:
+                line += '2'  # 边界视为敌方，防止超界活型误判
+        return line
+
     def evaluate(self):
+        patterns = {
+            '11111': 100000,  # 连五
+            '011110': 10000,  # 活四
+            '011112': 5000,
+            '211110': 5000,  # 冲四
+            '001110': 1000,  # 活三
+            '011100': 1000,
+            '011010': 800,
+            '010110': 800,
+            '000110': 500,  # 眠三
+            '011000': 500,
+            '001100': 500,
+            '001010': 300,  # 活二
+            '010100': 300,
+            '000100': 100  # 眠二
+        }
         score = 0
         for x in range(BOARD_SIZE):
             for y in range(BOARD_SIZE):
                 if self.board[x][y] == 0:
                     continue
-                player = self.board[x][y]
                 for dx, dy in DIRECTIONS:
-                    count = 0
-                    for i in range(5):
-                        nx = x + i * dx
-                        ny = y + i * dy
-                        if is_within(nx, ny) and self.board[nx][ny] == player:
-                            count += 1
-                        else:
-                            break
-                    if count > 0:
-                        score += SCORES.get(count, 0) * player
+                    line = self.get_line(x, y, dx, dy)
+                    for pattern, value in patterns.items():
+                        score += line.count(pattern) * (value if self.board[x][y] == -1 else -value)
         return score
+
+    def detect_kill_moves(self):
+        patterns = ['011110', '01111', '11110', '10111', '11011']
+        threat_score = defaultdict(int)
+
+        for x in range(BOARD_SIZE):
+            for y in range(BOARD_SIZE):
+                if self.board[x][y] != 0:
+                    continue
+                for dx, dy in DIRECTIONS:
+                    line = ''
+                    for i in range(-4, 5):
+                        nx, ny = x + i * dx, y + i * dy
+                        if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
+                            cell = self.board[nx][ny]
+                            if nx == x and ny == y:
+                                line += '1'
+                            elif cell == 1:
+                                line += '1'
+                            elif cell == -1:
+                                line += '2'
+                            else:
+                                line += '0'
+                        else:
+                            line += '2'
+                    for pattern in patterns:
+                        if pattern in line:
+                            threat_score[(x, y)] += 1
+
+        if threat_score:
+            # 选择能阻挡最多威胁的点
+            return max(threat_score.items(), key=lambda kv: kv[1])[0]
+        return None
 
     def get_candidates(self):
         candidates = set()
