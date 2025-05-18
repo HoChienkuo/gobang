@@ -36,15 +36,26 @@ class AI:
 
     def move(self, row, col):
         self.board[row][col] = 1
-        kill_moves = self.detect_kill_moves()
-        if kill_moves:
-            (x, y) = kill_moves
-            self.board[x][y] = -1
-            return x, y
-        _, move = self.minimax(MAX_DEPTH, -float('inf'), float('inf'), False)
-        (x, y) = move
-        self.board[x][y] = -1
-        return x, y
+        best_x, best_y = None, None
+        ai_level, ai_best_pos = self.get_max_kill_level(-1)
+        player_level, player_best_pos = self.get_max_kill_level(1)
+        if ai_level >= 100:
+            best_x, best_y = ai_best_pos
+        elif player_level >= 100:
+            best_x, best_y = player_best_pos
+        elif ai_level >= 90 and ai_level >= player_level:
+            best_x, best_y = ai_best_pos
+        elif player_level >= 90:
+            best_x, best_y = player_best_pos
+        elif ai_level >= 60 and ai_level >= player_level + 10:
+            best_x, best_y = ai_best_pos
+        # elif player_level >= 60:
+        #    best_x, best_y = player_best_pos
+        else:
+            _, move = self.minimax(MAX_DEPTH, -float('inf'), float('inf'), False)
+            best_x, best_y = move
+        self.board[best_x][best_y] = -1
+        return best_x, best_y
 
     def get_line(self, x, y, dx, dy):
         line = ''
@@ -122,6 +133,42 @@ class AI:
             # 选择能阻挡最多威胁的点
             return max(threat_score.items(), key=lambda kv: kv[1])[0]
         return None
+
+    def get_max_kill_level(self, player):
+        patterns = {
+            '11111': 100,  # 五连
+            '011110': 90,  # 活四
+            '01111': 80, '11110': 80, '10111': 80, '11011': 80,  # 冲四
+            '01110': 60, '010110': 60,  # 活三
+            '001112': 50, '010112': 50,  # 冲三
+        }
+        max_level = 0
+        best_pos = None
+
+        for x in range(BOARD_SIZE):
+            for y in range(BOARD_SIZE):
+                if self.board[x][y] != 0:
+                    continue
+                for dx, dy in DIRECTIONS:
+                    line = ''
+                    for i in range(-4, 5):
+                        nx, ny = x + i * dx, y + i * dy
+                        if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
+                            if nx == x and ny == y:
+                                line += '1'  # 假设当前位置是当前玩家下子
+                            elif self.board[nx][ny] == player:
+                                line += '1'
+                            elif self.board[nx][ny] == -player:
+                                line += '2'
+                            else:
+                                line += '0'
+                        else:
+                            line += '2'
+                    for pattern, level in patterns.items():
+                        if pattern in line and level > max_level:
+                            max_level = max(max_level, level)
+                            best_pos = (x, y)
+        return max_level, best_pos
 
     def get_candidates(self):
         candidates = set()
