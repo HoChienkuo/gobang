@@ -1,7 +1,6 @@
-from constants import BOARD_SIZE
+from constants import BOARD_SIZE, BLACK_STONE, WHITE_STONE, FREE_POS
 
 import numpy as np
-from collections import defaultdict
 
 MAX_DEPTH = 2  # 搜索深度
 
@@ -35,10 +34,10 @@ class AI:
         self.board = np.zeros((19, 19), dtype=int)
 
     def move(self, row, col):
-        self.board[row][col] = 1
+        self.board[row][col] = BLACK_STONE
         best_x, best_y = None, None
-        ai_level, ai_best_pos = self.get_max_kill_level(-1)
-        player_level, player_best_pos = self.get_max_kill_level(1)
+        ai_level, ai_best_pos = self.get_max_kill_level(WHITE_STONE)
+        player_level, player_best_pos = self.get_max_kill_level(BLACK_STONE)
         if ai_level >= 100:
             best_x, best_y = ai_best_pos
         elif player_level >= 100:
@@ -49,12 +48,10 @@ class AI:
             best_x, best_y = player_best_pos
         elif ai_level >= 60 and ai_level >= player_level + 10:
             best_x, best_y = ai_best_pos
-        # elif player_level >= 60:
-        #    best_x, best_y = player_best_pos
         else:
             _, move = self.minimax(MAX_DEPTH, -float('inf'), float('inf'), False)
             best_x, best_y = move
-        self.board[best_x][best_y] = -1
+        self.board[best_x][best_y] = WHITE_STONE
         return best_x, best_y
 
     def get_line(self, x, y, dx, dy):
@@ -63,9 +60,9 @@ class AI:
             nx, ny = x + i * dx, y + i * dy
             if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
                 cell = self.board[nx][ny]
-                if cell == -1:
+                if cell == WHITE_STONE:
                     line += '1'  # AI
-                elif cell == 1:
+                elif cell == BLACK_STONE:
                     line += '2'  # 玩家
                 else:
                     line += '0'
@@ -93,46 +90,13 @@ class AI:
         score = 0
         for x in range(BOARD_SIZE):
             for y in range(BOARD_SIZE):
-                if self.board[x][y] == 0:
+                if self.board[x][y] == FREE_POS:
                     continue
                 for dx, dy in DIRECTIONS:
                     line = self.get_line(x, y, dx, dy)
                     for pattern, value in patterns.items():
-                        score += line.count(pattern) * (value if self.board[x][y] == -1 else -value)
+                        score += line.count(pattern) * (value if self.board[x][y] == WHITE_STONE else -value)
         return score
-
-    def detect_kill_moves(self):
-        patterns = ['011110', '01111', '11110', '10111', '11011']
-        threat_score = defaultdict(int)
-
-        for x in range(BOARD_SIZE):
-            for y in range(BOARD_SIZE):
-                if self.board[x][y] != 0:
-                    continue
-                for dx, dy in DIRECTIONS:
-                    line = ''
-                    for i in range(-4, 5):
-                        nx, ny = x + i * dx, y + i * dy
-                        if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
-                            cell = self.board[nx][ny]
-                            if nx == x and ny == y:
-                                line += '1'
-                            elif cell == 1:
-                                line += '1'
-                            elif cell == -1:
-                                line += '2'
-                            else:
-                                line += '0'
-                        else:
-                            line += '2'
-                    for pattern in patterns:
-                        if pattern in line:
-                            threat_score[(x, y)] += 1
-
-        if threat_score:
-            # 选择能阻挡最多威胁的点
-            return max(threat_score.items(), key=lambda kv: kv[1])[0]
-        return None
 
     def get_max_kill_level(self, player):
         patterns = {
@@ -147,7 +111,7 @@ class AI:
 
         for x in range(BOARD_SIZE):
             for y in range(BOARD_SIZE):
-                if self.board[x][y] != 0:
+                if self.board[x][y] != FREE_POS:
                     continue
                 for dx, dy in DIRECTIONS:
                     line = ''
@@ -174,11 +138,11 @@ class AI:
         candidates = set()
         for x in range(BOARD_SIZE):
             for y in range(BOARD_SIZE):
-                if self.board[x][y] != 0:
+                if self.board[x][y] != FREE_POS:
                     for dx in range(-2, 3):
                         for dy in range(-2, 3):
                             nx, ny = x + dx, y + dy
-                            if is_within(nx, ny) and self.board[nx][ny] == 0:
+                            if is_within(nx, ny) and self.board[nx][ny] == FREE_POS:
                                 candidates.add((nx, ny))
         return list(candidates)
 
@@ -193,9 +157,9 @@ class AI:
         if maximizing_player:
             max_eval = -float('inf')
             for x, y in candidates:
-                self.board[x][y] = -1
+                self.board[x][y] = WHITE_STONE
                 eval, _ = self.minimax(depth - 1, alpha, beta, False)
-                self.board[x][y] = 0
+                self.board[x][y] = FREE_POS
                 if eval > max_eval:
                     max_eval = eval
                     best_move = (x, y)
@@ -206,9 +170,9 @@ class AI:
         else:
             min_eval = float('inf')
             for x, y in candidates:
-                self.board[x][y] = 1
+                self.board[x][y] = BLACK_STONE
                 eval, _ = self.minimax(depth - 1, alpha, beta, True)
-                self.board[x][y] = 0
+                self.board[x][y] = FREE_POS
                 if eval < min_eval:
                     min_eval = eval
                     best_move = (x, y)
