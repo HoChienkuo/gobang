@@ -63,7 +63,6 @@ class AI:
         else:
             _, move = self.minimax(MAX_DEPTH, -float('inf'), float('inf'), False)
             best_x, best_y = move
-        self.board[best_x][best_y] = WHITE_STONE
         self.add_stone(best_x, best_y, WHITE_STONE)
         return best_x, best_y
 
