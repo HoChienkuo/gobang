@@ -74,6 +74,7 @@ class GoBang:
     def reset_game(self):
         self.board = [[FREE_POS for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
         self.current_player = BLACK_STONE
+        self.ai = AI()
 
     def quit(self):
         # 弹出确认对话框
