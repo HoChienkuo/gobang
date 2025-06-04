@@ -32,9 +32,21 @@ def count_sequence(board, x, y, dx, dy, player):
 class AI:
     def __init__(self):
         self.board = np.zeros((19, 19), dtype=int)
+        #  使用set增加查询速度
+        self.black_stone_set = set()
+        self.white_stone_set = set()
+        self.free_pos_set: set = {(x, y) for x in range(19) for y in range(19)}
+
+    def add_stone(self, row, col, stone):
+        self.board[row][col] = stone
+        if stone == BLACK_STONE:
+            self.black_stone_set.add((row, col))
+        if stone == WHITE_STONE:
+            self.white_stone_set.add((row, col))
+        self.free_pos_set.remove((row, col))
 
     def move(self, row, col):
-        self.board[row][col] = BLACK_STONE
+        self.add_stone(row, col, BLACK_STONE)
         best_x, best_y = None, None
         ai_level, ai_best_pos = self.get_max_kill_level(WHITE_STONE)
         player_level, player_best_pos = self.get_max_kill_level(BLACK_STONE)
@@ -52,6 +64,7 @@ class AI:
             _, move = self.minimax(MAX_DEPTH, -float('inf'), float('inf'), False)
             best_x, best_y = move
         self.board[best_x][best_y] = WHITE_STONE
+        self.add_stone(best_x, best_y, WHITE_STONE)
         return best_x, best_y
 
     def get_line(self, x, y, dx, dy):
@@ -88,14 +101,11 @@ class AI:
             '000100': 100  # 眠二
         }
         score = 0
-        for x in range(BOARD_SIZE):
-            for y in range(BOARD_SIZE):
-                if self.board[x][y] == FREE_POS:
-                    continue
-                for dx, dy in DIRECTIONS:
-                    line = self.get_line(x, y, dx, dy)
-                    for pattern, value in patterns.items():
-                        score += line.count(pattern) * (value if self.board[x][y] == WHITE_STONE else -value)
+        for x, y in self.black_stone_set | self.white_stone_set:
+            for dx, dy in DIRECTIONS:
+                line = self.get_line(x, y, dx, dy)
+                for pattern, value in patterns.items():
+                    score += line.count(pattern) * (value if self.board[x][y] == WHITE_STONE else -value)
         return score
 
     def get_max_kill_level(self, player):
@@ -109,41 +119,36 @@ class AI:
         max_level = 0
         best_pos = None
 
-        for x in range(BOARD_SIZE):
-            for y in range(BOARD_SIZE):
-                if self.board[x][y] != FREE_POS:
-                    continue
-                for dx, dy in DIRECTIONS:
-                    line = ''
-                    for i in range(-4, 5):
-                        nx, ny = x + i * dx, y + i * dy
-                        if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
-                            if nx == x and ny == y:
-                                line += '1'  # 假设当前位置是当前玩家下子
-                            elif self.board[nx][ny] == player:
-                                line += '1'
-                            elif self.board[nx][ny] == -player:
-                                line += '2'
-                            else:
-                                line += '0'
-                        else:
+        for x, y in self.free_pos_set:
+            for dx, dy in DIRECTIONS:
+                line = ''
+                for i in range(-4, 5):
+                    nx, ny = x + i * dx, y + i * dy
+                    if 0 <= nx < BOARD_SIZE and 0 <= ny < BOARD_SIZE:
+                        if nx == x and ny == y:
+                            line += '1'  # 假设当前位置是当前玩家下子
+                        elif self.board[nx][ny] == player:
+                            line += '1'
+                        elif self.board[nx][ny] == -player:
                             line += '2'
-                    for pattern, level in patterns.items():
-                        if pattern in line and level > max_level:
-                            max_level = max(max_level, level)
-                            best_pos = (x, y)
+                        else:
+                            line += '0'
+                    else:
+                        line += '2'
+                for pattern, level in patterns.items():
+                    if pattern in line and level > max_level:
+                        max_level = max(max_level, level)
+                        best_pos = (x, y)
         return max_level, best_pos
 
     def get_candidates(self):
         candidates = set()
-        for x in range(BOARD_SIZE):
-            for y in range(BOARD_SIZE):
-                if self.board[x][y] != FREE_POS:
-                    for dx in range(-2, 3):
-                        for dy in range(-2, 3):
-                            nx, ny = x + dx, y + dy
-                            if is_within(nx, ny) and self.board[nx][ny] == FREE_POS:
-                                candidates.add((nx, ny))
+        for x, y in self.black_stone_set | self.white_stone_set:
+            for dx in range(-2, 3):
+                for dy in range(-2, 3):
+                    nx, ny = x + dx, y + dy
+                    if is_within(nx, ny) and self.board[nx][ny] == FREE_POS:
+                        candidates.add((nx, ny))
         return list(candidates)
 
     def minimax(self, depth, alpha, beta, maximizing_player):
